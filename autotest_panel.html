@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel del facilitador · Autotest de autocuidado · PLAPA</title>
+
+<!--
+============================================================================
+  Panel del FACILITADOR (agregado del grupo, anónimo).
+  Capacitación «Cuidar a los que cuidan» · PLAPA · CELAM
+
+  Uso:  autotest_panel.html?s=CODIGO-DE-CAPACITACION
+        Si falta el parámetro, la página avisa.
+
+  El panel se refresca automáticamente cada 15 segundos.
+
+  Este link es privado: compartilo solo con quien facilite la capacitación.
+  Los participantes NO deben tener este link.
+============================================================================
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --i29-oscuro:  #3B6D11;
+    --i29-medio:   #639922;
+    --i29-accent:  #7FB537;
+    --i29-suave:   #B8D585;
+    --i29-claro:   #DBEBBB;
+    --i29-crema:   #F4F8EC;
+    --i29-fondo:   #FCFCFA;
+    --alerta:      #C9531F;
+    --tinta:       #1F2410;
+    --gris-claro:  #E8E8E4;
+
+    --z-sost:  #4A9A3A;
+    --z-alert: #C9A227;
+    --z-desg:  #C9531F;
+    --z-agot:  #A3231A;
+
+    --serif: Georgia, "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--i29-fondo);
+    color: var(--tinta);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  header.top {
+    background: var(--i29-oscuro);
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header.top .titulo {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-style: italic;
+  }
+  header.top .titulo strong {
+    font-style: normal;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  header.top .sesion {
+    font-size: 12px;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 10px;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 30px 22px 60px;
+  }
+
+  h1.h-panel {
+    font-family: var(--serif);
+    color: var(--i29-oscuro);
+    font-size: 28px;
+    margin: 0 0 4px;
+    font-weight: 700;
+  }
+  .subtitulo-panel {
+    color: #666;
+    font-size: 14px;
+    margin: 0 0 30px;
+  }
+
+  .aviso-config {
+    background: #fff5f0;
+    border: 2px solid var(--alerta);
+    padding: 20px;
+    margin: 20px 0;
+    color: var(--alerta);
+    text-align: center;
+    font-size: 14px;
+    display: none;
+  }
+  .aviso-config.visible { display: block; }
+
+  /* Métricas principales */
+  .metricas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px;
+    margin: 30px 0;
+  }
+  .metrica {
+    background: white;
+    border: 1px solid var(--gris-claro);
+    border-radius: 8px;
+    padding: 22px 20px;
+    text-align: center;
+  }
+  .metrica .label {
+    font-size: 11px;
+    color: var(--i29-medio);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .metrica .valor {
+    font-family: var(--serif);
+    font-size: 44px;
+    color: var(--i29-oscuro);
+    font-weight: 700;
+    line-height: 1;
+  }
+  .metrica .sub {
+    font-size: 12px;
+    color: #888;
+    margin-top: 6px;
+    font-style: italic;
+  }
+  .metrica.destacada {
+    border-color: var(--i29-oscuro);
+    border-width: 2px;
+    background: var(--i29-crema);
+  }
+  .metrica.destacada .valor { font-size: 56px; }
+
+  /* Zona del grupo */
+  .zona-grupo {
+    background: white;
+    border: 1px solid var(--gris-claro);
+    border-radius: 8px;
+    padding: 24px 26px;
+    margin: 24px 0;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .zona-grupo .badge {
+    flex-shrink: 0;
+    width: 14px;
+    height: 60px;
+    border-radius: 3px;
+    background: var(--z-sost);
+  }
+  .zona-grupo.alert  .badge { background: var(--z-alert); }
+  .zona-grupo.desg   .badge { background: var(--z-desg); }
+  .zona-grupo.agot   .badge { background: var(--z-agot); }
+
+  .zona-grupo .contenido .titulo-zona {
+    font-family: var(--serif);
+    font-size: 22px;
+    color: var(--i29-oscuro);
+    margin: 0 0 4px;
+    font-weight: 700;
+  }
+  .zona-grupo .contenido .desc-zona {
+    color: #555;
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* Distribución por zonas */
+  .distribucion {
+    background: white;
+    border: 1px solid var(--gris-claro);
+    border-radius: 8px;
+    padding: 22px 26px;
+    margin: 24px 0;
+  }
+  .distribucion h3 {
+    font-family: var(--serif);
+    color: var(--i29-oscuro);
+    font-size: 17px;
+    margin: 0 0 18px;
+    font-weight: 700;
+  }
+  .barra-zona {
+    display: grid;
+    grid-template-columns: 200px 1fr 60px;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .barra-zona .nombre { font-size: 13.5px; }
+  .barra-zona .barra-bg {
+    background: var(--i29-crema);
+    height: 22px;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .barra-zona .barra-fill {
+    height: 100%;
+    width: 0;
+    transition: width 0.5s ease;
+  }
+  .barra-zona.sost  .barra-fill { background: var(--z-sost); }
+  .barra-zona.alert .barra-fill { background: var(--z-alert); }
+  .barra-zona.desg  .barra-fill { background: var(--z-desg); }
+  .barra-zona.agot  .barra-fill { background: var(--z-agot); }
+  .barra-zona .conteo {
+    font-family: var(--serif);
+    font-weight: 700;
+    color: var(--i29-oscuro);
+    font-size: 15px;
+    text-align: right;
+  }
+  .barra-zona .conteo small {
+    font-family: var(--sans);
+    font-weight: 400;
+    color: #888;
+    font-size: 11px;
+    display: block;
+  }
+
+  /* Estado vacío */
+  .vacio {
+    text-align: center;
+    padding: 60px 30px;
+    color: #888;
+    background: white;
+    border: 1px dashed var(--gris-claro);
+    border-radius: 8px;
+    margin: 30px 0;
+  }
+  .vacio .icono {
+    font-size: 40px;
+    margin-bottom: 12px;
+    color: var(--i29-suave);
+  }
+  .vacio p { margin: 6px 0; }
+
+  /* Footer de refresh */
+  .footer-refresh {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    margin-top: 20px;
+    border-top: 1px solid var(--gris-claro);
+    color: #888;
+    font-size: 12.5px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .footer-refresh button {
+    background: white;
+    border: 1px solid var(--i29-medio);
+    color: var(--i29-oscuro);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 13px;
+    transition: background 0.15s ease;
+  }
+  .footer-refresh button:hover {
+    background: var(--i29-crema);
+  }
+  .footer-refresh .pulso {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--i29-medio);
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulso 2s infinite;
+  }
+  @keyframes pulso {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.3); }
+  }
+
+  .link-participante {
+    background: var(--i29-crema);
+    border: 1px solid var(--i29-suave);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 13.5px;
+    color: var(--i29-oscuro);
+  }
+  .link-participante strong { color: var(--i29-oscuro); }
+  .link-participante code {
+    display: block;
+    background: white;
+    padding: 8px 12px;
+    margin-top: 8px;
+    border-radius: 3px;
+    font-family: "Menlo", "Consolas", monospace;
+    font-size: 12.5px;
+    color: var(--tinta);
+    word-break: break-all;
+    border: 1px solid var(--gris-claro);
+  }
+
+  @media (max-width: 620px) {
+    .barra-zona { grid-template-columns: 130px 1fr 50px; gap: 8px; }
+    .barra-zona .nombre { font-size: 12px; }
+    header.top { padding: 14px 18px; }
+    header.top .titulo { font-size: 15px; }
+    main { padding: 24px 16px 40px; }
+    h1.h-panel { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="titulo"><strong>PLAPA</strong>Panel del facilitador · Autotest</div>
+  <div class="sesion" id="sesion-badge">–</div>
+</header>
+
+<main>
+
+  <h1 class="h-panel">Cuidar a los que cuidan</h1>
+  <p class="subtitulo-panel">Lectura agregada y anónima del grupo. Se actualiza cada 15 segundos.</p>
+
+  <div id="aviso-config" class="aviso-config">
+    ⚠ Falta el código de capacitación. Agregá <code>?s=CODIGO</code> al final de la URL.
+  </div>
+
+  <div id="contenido" style="display:none;">
+
+    <div class="metricas">
+      <div class="metrica destacada">
+        <div class="label">Índice promedio</div>
+        <div class="valor" id="m-promedio">–</div>
+        <div class="sub">rango: −16 a +32</div>
+      </div>
+      <div class="metrica">
+        <div class="label">Respuestas</div>
+        <div class="valor" id="m-total">0</div>
+      </div>
+      <div class="metrica">
+        <div class="label">Mínimo</div>
+        <div class="valor" id="m-min">–</div>
+      </div>
+      <div class="metrica">
+        <div class="label">Máximo</div>
+        <div class="valor" id="m-max">–</div>
+      </div>
+    </div>
+
+    <div id="zona-grupo-wrap"></div>
+
+    <div class="distribucion" id="distribucion-wrap"></div>
+
+    <div class="link-participante">
+      <strong>Enlace para los participantes:</strong>
+      <code id="link-participante">–</code>
+    </div>
+
+  </div>
+
+  <div id="vacio" class="vacio" style="display:none;">
+    <div class="icono">◐</div>
+    <p>Todavía no hay respuestas.</p>
+    <p style="font-size:13px;">Compartí el enlace a los participantes y el panel se irá actualizando.</p>
+  </div>
+
+  <div class="footer-refresh">
+    <div>
+      <span class="pulso"></span>
+      <span id="ultima-actualizacion">Cargando…</span>
+    </div>
+    <button id="btn-refresh">Actualizar ahora</button>
+  </div>
+
+</main>
+
+<script>
+  // ==========================================================================
+  //  CONFIGURACIÓN — mismos valores que autotest.html
+  // ==========================================================================
+  const SUPABASE_URL      = 'https://jmxevgagitypprkfzjua.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpteGV2Z2FnaXR5cHBya2Z6anVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMjk3NDgsImV4cCI6MjEwNTYwNTc0OH0.bjrkE-ZRm-0CledotycyoL6_GJN-seK-YbvVli0aq5g';
+
+  const INTERVALO_REFRESH_MS = 15000;
+
+  const ZONAS = [
+    { limite:  6, key: 'sost',  nombre: 'Zona de sostenibilidad',
+      desc: 'El grupo mantiene un autocuidado que sostiene el servicio. Momento para consolidar prácticas y evitar la complacencia.' },
+    { limite: 15, key: 'alert', nombre: 'Zona de alerta temprana',
+      desc: 'Aparecen señales de desgaste que conviene nombrar y atender antes de que crezcan. Ideal para introducir las estrategias del §11.1.14.' },
+    { limite: 24, key: 'desg',  nombre: 'Zona de desgaste sostenido',
+      desc: 'El grupo carga un desgaste que ya afecta la tarea. Es tiempo de cambios concretos: supervisión, redistribución de cargas, pausas reales.' },
+    { limite: 99, key: 'agot',  nombre: 'Zona de agotamiento severo',
+      desc: 'Situación crítica del grupo. Requiere intervención acompañada, no solo formación. Considerar acompañamiento profesional además del comunitario.' }
+  ];
+
+  // ==========================================================================
+  //  INICIALIZACIÓN
+  // ==========================================================================
+  const params = new URLSearchParams(location.search);
+  const sesionId = (params.get('s') || '').trim();
+
+  let client = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!sesionId) {
+      document.getElementById('aviso-config').classList.add('visible');
+      return;
+    }
+    document.getElementById('sesion-badge').textContent = sesionId;
+    document.getElementById('contenido').style.display = 'block';
+
+    // Mostrar el link que los participantes deben usar
+    const url = new URL(location.href);
+    url.pathname = url.pathname.replace(/autotest_panel\.html$/, 'autotest.html');
+    document.getElementById('link-participante').textContent = url.toString();
+
+    client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    cargar();
+    setInterval(cargar, INTERVALO_REFRESH_MS);
+    document.getElementById('btn-refresh').addEventListener('click', cargar);
+  });
+
+  async function cargar() {
+    if (!client || !sesionId) return;
+    try {
+      const { data, error } = await client
+        .from('autotest_respuestas')
+        .select('indice, zona')
+        .eq('sesion_id', sesionId);
+      if (error) throw error;
+      pintar(data || []);
+      document.getElementById('ultima-actualizacion').textContent =
+        'Última actualización: ' + new Date().toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    } catch (err) {
+      console.error(err);
+      document.getElementById('ultima-actualizacion').textContent =
+        '⚠ Error al conectar con Supabase — verificá la configuración';
+    }
+  }
+
+  function pintar(filas) {
+    const vacio = document.getElementById('vacio');
+    const contenido = document.getElementById('contenido');
+
+    if (filas.length === 0) {
+      vacio.style.display = 'block';
+      document.getElementById('m-total').textContent = '0';
+      document.getElementById('m-promedio').textContent = '–';
+      document.getElementById('m-min').textContent = '–';
+      document.getElementById('m-max').textContent = '–';
+      document.getElementById('zona-grupo-wrap').innerHTML = '';
+      document.getElementById('distribucion-wrap').innerHTML = '';
+      return;
+    }
+    vacio.style.display = 'none';
+
+    const indices = filas.map(f => f.indice);
+    const total = indices.length;
+    const promedio = indices.reduce((a,b) => a + b, 0) / total;
+    const minimo = Math.min(...indices);
+    const maximo = Math.max(...indices);
+
+    document.getElementById('m-total').textContent = total;
+    document.getElementById('m-promedio').textContent =
+      (promedio >= 0 ? '+' : '') + promedio.toFixed(1);
+    document.getElementById('m-min').textContent = (minimo >= 0 ? '+' : '') + minimo;
+    document.getElementById('m-max').textContent = (maximo >= 0 ? '+' : '') + maximo;
+
+    // Zona del grupo (según promedio)
+    const zonaGrupo = ZONAS.find(z => promedio <= z.limite);
+    document.getElementById('zona-grupo-wrap').innerHTML = `
+      <div class="zona-grupo ${zonaGrupo.key}">
+        <div class="badge"></div>
+        <div class="contenido">
+          <p class="titulo-zona">${zonaGrupo.nombre}</p>
+          <p class="desc-zona">${zonaGrupo.desc}</p>
+        </div>
+      </div>
+    `;
+
+    // Distribución por zonas
+    const conteo = { sost: 0, alert: 0, desg: 0, agot: 0 };
+    filas.forEach(f => {
+      const z = ZONAS.find(z => z.nombre === f.zona);
+      if (z) conteo[z.key]++;
+    });
+
+    const html = ZONAS.map(z => {
+      const c = conteo[z.key];
+      const pct = total > 0 ? (c / total * 100) : 0;
+      return `
+        <div class="barra-zona ${z.key}">
+          <div class="nombre">${z.nombre.replace('Zona de ', '')}</div>
+          <div class="barra-bg">
+            <div class="barra-fill" style="width: ${pct}%"></div>
+          </div>
+          <div class="conteo">${c}<small>${pct.toFixed(0)}%</small></div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('distribucion-wrap').innerHTML = `
+      <h3>Distribución del grupo por zona</h3>
+      ${html}
+    `;
+  }
+</script>
+
+</body>
+</html>

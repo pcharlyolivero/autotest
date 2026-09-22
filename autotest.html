@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Autotest de autocuidado · Cuidar a los que cuidan · PLAPA</title>
+
+<!--
+============================================================================
+  Autotest de autocuidado del agente pastoral
+  Capacitación «Cuidar a los que cuidan» · PLAPA · CELAM
+  Página del PARTICIPANTE (anónima).
+
+  Uso:  autotest.html?s=CODIGO-DE-CAPACITACION
+        Si falta el parámetro, la página avisa y no permite entregar.
+
+  Requisitos:
+    · Completar SUPABASE_URL y SUPABASE_ANON_KEY abajo (una sola vez).
+    · Tener creada la tabla `autotest_respuestas` en Supabase
+      (ver autotest_supabase_setup.sql).
+============================================================================
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    /* Paleta bloque 7 — Sostenibilidad y red */
+    --i29-oscuro:  #3B6D11;
+    --i29-medio:   #639922;
+    --i29-accent:  #7FB537;
+    --i29-suave:   #B8D585;
+    --i29-claro:   #DBEBBB;
+    --i29-crema:   #F4F8EC;
+    --i29-fondo:   #FCFCFA;
+    --alerta:      #C9531F;
+    --tinta:       #1F2410;
+    --gris-claro:  #E8E8E4;
+
+    --serif: Georgia, "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--i29-fondo);
+    color: var(--tinta);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.55;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .top-header {
+    background: white;
+    border-bottom: 1px solid var(--gris-claro);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--i29-medio);
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 22px 80px;
+  }
+
+  /* Portada */
+  .portada {
+    text-align: center;
+    padding: 40px 0 30px;
+  }
+  .portada .kicker {
+    color: var(--i29-medio);
+    font-family: var(--sans);
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .portada h1 {
+    font-family: var(--serif);
+    font-size: 38px;
+    line-height: 1.15;
+    color: var(--i29-oscuro);
+    margin: 0 0 12px;
+    font-weight: 700;
+  }
+  .portada .sub {
+    font-style: italic;
+    color: var(--tinta);
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .separador {
+    height: 1px;
+    background: var(--i29-suave);
+    max-width: 120px;
+    margin: 30px auto;
+    border: 0;
+  }
+
+  /* Aviso de anonimato */
+  .anonimato {
+    background: white;
+    border: 2px solid var(--i29-oscuro);
+    padding: 20px 22px;
+    margin: 24px 0 30px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .anonimato .icono {
+    font-size: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+    color: var(--i29-oscuro);
+  }
+  .anonimato p {
+    margin: 0;
+    font-size: 15.5px;
+    line-height: 1.5;
+  }
+  .anonimato strong { color: var(--i29-oscuro); }
+
+  /* Instrucciones */
+  .instrucciones {
+    background: var(--i29-crema);
+    padding: 18px 22px;
+    border-left: 4px solid var(--i29-medio);
+    margin: 22px 0;
+    font-size: 15.5px;
+  }
+  .instrucciones p { margin: 0 0 8px; }
+  .instrucciones p:last-child { margin: 0; }
+  .instrucciones .escala {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    text-align: center;
+    color: var(--i29-oscuro);
+  }
+  .instrucciones .escala span {
+    background: white;
+    padding: 6px 4px;
+    border-radius: 4px;
+    border: 1px solid var(--i29-suave);
+  }
+  .instrucciones .escala b {
+    display: block;
+    font-size: 16px;
+    color: var(--i29-oscuro);
+    margin-bottom: 2px;
+  }
+
+  /* Bloques de preguntas */
+  .bloque h2 {
+    font-family: var(--serif);
+    color: var(--i29-medio);
+    font-size: 22px;
+    border-bottom: 1px solid var(--i29-suave);
+    padding-bottom: 8px;
+    margin: 40px 0 4px;
+    font-weight: 700;
+  }
+  .bloque .bloque-desc {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--i29-medio);
+    font-style: italic;
+    margin: 0 0 20px;
+  }
+
+  .pregunta {
+    background: white;
+    border: 1px solid var(--gris-claro);
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .pregunta.respondida {
+    border-color: var(--i29-suave);
+    box-shadow: 0 1px 4px rgba(59, 109, 17, 0.08);
+  }
+  .pregunta .texto {
+    font-size: 16px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .pregunta .num {
+    display: inline-block;
+    color: var(--i29-oscuro);
+    font-weight: 700;
+    font-family: var(--sans);
+    margin-right: 6px;
+  }
+
+  .escala-opciones {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .escala-opciones label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 4px;
+    border: 1.5px solid var(--gris-claro);
+    border-radius: 6px;
+    cursor: pointer;
+    background: white;
+    transition: all 0.15s ease;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    text-align: center;
+    color: #666;
+    user-select: none;
+  }
+  .escala-opciones label:hover {
+    border-color: var(--i29-medio);
+    background: var(--i29-crema);
+  }
+  .escala-opciones label input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .escala-opciones label .n {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--i29-oscuro);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .escala-opciones label.seleccionada {
+    border-color: var(--i29-oscuro);
+    background: var(--i29-oscuro);
+    color: white;
+  }
+  .escala-opciones label.seleccionada .n {
+    color: white;
+  }
+
+  /* Botón entregar */
+  .entregar-wrap {
+    text-align: center;
+    margin: 48px 0 20px;
+  }
+  .contador {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 14px;
+  }
+  .contador.completo { color: var(--i29-oscuro); font-weight: 600; }
+
+  button.entregar {
+    background: var(--i29-oscuro);
+    color: white;
+    border: none;
+    padding: 18px 44px;
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button.entregar:hover:not(:disabled) {
+    background: #2d5309;
+  }
+  button.entregar:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  button.entregar:disabled {
+    background: #b5c9a8;
+    cursor: not-allowed;
+  }
+
+  .error-msg {
+    background: #fff5f0;
+    border-left: 4px solid var(--alerta);
+    padding: 14px 18px;
+    margin: 16px 0;
+    color: var(--alerta);
+    font-size: 15px;
+    display: none;
+  }
+  .error-msg.visible { display: block; }
+
+  /* Aviso de configuración faltante */
+  .aviso-config {
+    background: #fff5f0;
+    border: 2px solid var(--alerta);
+    padding: 20px;
+    margin: 20px 0;
+    color: var(--alerta);
+    font-family: var(--sans);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  /* Pantalla ENTREGADO */
+  #resultado { display: none; }
+  #resultado.visible { display: block; }
+
+  .entregado-card {
+    background: white;
+    border: 3px solid var(--i29-oscuro);
+    padding: 60px 30px 50px;
+    text-align: center;
+    margin: 30px 0;
+  }
+  .entregado-check {
+    font-size: 90px;
+    line-height: 1;
+    color: var(--i29-oscuro);
+    margin-bottom: 8px;
+  }
+  .entregado-titulo {
+    font-family: var(--sans);
+    font-size: 68px;
+    font-weight: 800;
+    color: var(--i29-oscuro);
+    letter-spacing: 0.08em;
+    margin: 0 0 20px;
+    line-height: 1;
+  }
+  .entregado-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--tinta);
+    max-width: 460px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  .indice-personal {
+    background: var(--i29-crema);
+    padding: 28px 24px;
+    margin: 26px 0;
+    text-align: center;
+    border-radius: 6px;
+  }
+  .indice-personal .label {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--i29-medio);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .indice-personal .valor {
+    font-family: var(--serif);
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--i29-oscuro);
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .indice-personal .zona {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-style: italic;
+    color: var(--i29-oscuro);
+    margin-bottom: 10px;
+  }
+  .indice-personal .zona-descripcion {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--tinta);
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  .recordatorio-anonimato {
+    text-align: center;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--i29-medio);
+    font-style: italic;
+    padding: 20px 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 520px) {
+    main { padding: 20px 14px 60px; }
+    .portada h1 { font-size: 30px; }
+    .escala-opciones label { padding: 8px 2px; font-size: 10px; }
+    .escala-opciones label .n { font-size: 17px; }
+    .entregado-titulo { font-size: 44px; letter-spacing: 0.05em; }
+    .entregado-check { font-size: 68px; }
+    .indice-personal .valor { font-size: 44px; }
+    .instrucciones .escala { grid-template-columns: repeat(5, 1fr); gap: 3px; font-size: 10.5px; }
+    .instrucciones .escala span { padding: 5px 2px; }
+    .anonimato { flex-direction: column; gap: 8px; }
+  }
+
+  @media print {
+    button.entregar, .top-header { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top-header">
+  Cuidar a los que cuidan · Autotest de autocuidado · PLAPA
+</header>
+
+<main>
+
+  <!-- =============== FORMULARIO =============== -->
+  <section id="formulario">
+
+    <div class="portada">
+      <div class="kicker">PLAPA · CELAM</div>
+      <h1>Cuidar a los que cuidan</h1>
+      <p class="sub">Autotest de autocuidado del agente pastoral</p>
+    </div>
+
+    <hr class="separador">
+
+    <div id="aviso-config" class="aviso-config" style="display:none;">
+      ⚠ Falta el código de capacitación en el enlace.<br>
+      Pedile al facilitador el enlace correcto para poder responder.
+    </div>
+
+    <div class="anonimato">
+      <div class="icono">🔒</div>
+      <p>
+        Este autotest es <strong>completamente anónimo</strong>. No se registra tu
+        nombre, tu correo ni ningún dato que te identifique. Sirve como brújula
+        personal para vos y como lectura general del grupo para el facilitador.
+      </p>
+    </div>
+
+    <div class="instrucciones">
+      <p>Este autotest es una <em>brújula personal</em>, no un diagnóstico. Sirve
+      para llegar al encuentro con material propio sobre el que trabajar.</p>
+      <p>Respondé con honestidad, pensando en los últimos tres meses de servicio.
+      Usá la siguiente escala para cada afirmación:</p>
+      <div class="escala">
+        <span><b>0</b>Nunca</span>
+        <span><b>1</b>Rara vez</span>
+        <span><b>2</b>A veces</span>
+        <span><b>3</b>Frecuente­mente</span>
+        <span><b>4</b>Casi siempre</span>
+      </div>
+    </div>
+
+    <!-- Preguntas se inyectan por JS -->
+    <div id="preguntas-container"></div>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <div class="entregar-wrap">
+      <div class="contador" id="contador">Respondidas: 0 de 12</div>
+      <button class="entregar" id="btn-entregar" disabled>Entregar</button>
+    </div>
+
+  </section>
+
+  <!-- =============== RESULTADO =============== -->
+  <section id="resultado">
+
+    <div class="entregado-card">
+      <div class="entregado-check">✓</div>
+      <h2 class="entregado-titulo">ENTREGADO</h2>
+      <p class="entregado-sub">
+        Gracias por completar el autotest.<br>
+        Tu respuesta se registró de forma completamente anónima.
+      </p>
+    </div>
+
+    <div class="indice-personal">
+      <div class="label">Tu índice personal</div>
+      <div class="valor" id="valor-indice">–</div>
+      <div class="zona" id="zona-nombre">–</div>
+      <div class="zona-descripcion" id="zona-descripcion">–</div>
+    </div>
+
+    <p class="recordatorio-anonimato">
+      Este resultado es solo para vos. Traelo al próximo encuentro como insumo
+      personal — no hace falta compartirlo con el grupo.
+    </p>
+
+  </section>
+
+</main>
+
+<script>
+  // ==========================================================================
+  //  CONFIGURACIÓN — completar con los valores del proyecto Supabase
+  // ==========================================================================
+  const SUPABASE_URL      = 'https://jmxevgagitypprkfzjua.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpteGV2Z2FnaXR5cHBya2Z6anVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMjk3NDgsImV4cCI6MjEwNTYwNTc0OH0.bjrkE-ZRm-0CledotycyoL6_GJN-seK-YbvVli0aq5g';
+
+  // ==========================================================================
+  //  PREGUNTAS
+  // ==========================================================================
+  const BLOQUES = [
+    {
+      titulo: 'A · Agotamiento',
+      desc: 'Cómo estoy al fin de la jornada de servicio.',
+      preguntas: [
+        'Termino la jornada de servicio con la sensación de estar emocionalmente vacío.',
+        'Me cuesta volver a conectar con lo que me apasionaba de esta tarea cuando empecé.',
+        'Tengo dificultades para dormir por cosas del servicio.',
+        'Siento que estoy dando más de lo que puedo sostener.'
+      ]
+    },
+    {
+      titulo: 'B · Fatiga por compasión y trauma secundario',
+      desc: 'Cómo me afecta cargar con el dolor de los que acompaño.',
+      preguntas: [
+        'Cargo con imágenes o historias de los hermanos acompañados que vuelven cuando no las llamo.',
+        'Me siento sobrepasado por la magnitud del dolor que veo en el territorio.',
+        'Me cuesta separar mi vida personal del sufrimiento de los que acompaño.',
+        'He perdido la capacidad de conmoverme como antes.'
+      ]
+    },
+    {
+      titulo: 'C · Autocuidado, límites y sostén',
+      desc: 'Con qué recursos cuento para sostener el servicio.',
+      preguntas: [
+        'Tengo un espacio regular (mensual o más frecuente) de supervisión o acompañamiento espiritual.',
+        'Puedo decir <em>no</em> sin culpa cuando mis fuerzas están al límite.',
+        'Tengo prácticas de descanso, ocio o naturaleza que efectivamente cumplo.',
+        'Cuento con al menos un par o hermano de equipo con quien puedo compartir lo difícil.'
+      ]
+    }
+  ];
+
+  const ETIQUETAS = ['Nunca', 'Rara vez', 'A veces', 'Frecuente­mente', 'Casi siempre'];
+
+  const ZONAS = [
+    { limite:  6, nombre: 'Zona de sostenibilidad',
+      desc: 'El autocuidado está funcionando; conviene consolidarlo.' },
+    { limite: 15, nombre: 'Zona de alerta temprana',
+      desc: 'Hay señales que conviene atender antes de que crezcan.' },
+    { limite: 24, nombre: 'Zona de desgaste sostenido',
+      desc: 'Es tiempo de un cambio concreto: pedir supervisión, reorganizar cargas, pausar.' },
+    { limite: 99, nombre: 'Zona de agotamiento severo',
+      desc: 'No sigas solo. Buscá acompañamiento profesional además del comunitario.' }
+  ];
+
+  // ==========================================================================
+  //  INICIALIZACIÓN
+  // ==========================================================================
+  const params  = new URLSearchParams(location.search);
+  const sesionId = (params.get('s') || '').trim();
+
+  const respuestas = new Array(12).fill(null);
+  let ya_entregado = false;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!sesionId) {
+      document.getElementById('aviso-config').style.display = 'block';
+      document.getElementById('btn-entregar').disabled = true;
+    }
+    renderPreguntas();
+    document.getElementById('btn-entregar').addEventListener('click', entregar);
+  });
+
+  function renderPreguntas() {
+    const cont = document.getElementById('preguntas-container');
+    let n = 0;
+
+    BLOQUES.forEach(bloque => {
+      const secc = document.createElement('div');
+      secc.className = 'bloque';
+      secc.innerHTML = `
+        <h2>${bloque.titulo}</h2>
+        <p class="bloque-desc">${bloque.desc}</p>
+      `;
+      bloque.preguntas.forEach(texto => {
+        n++;
+        const idx = n - 1;
+        const tarjeta = document.createElement('div');
+        tarjeta.className = 'pregunta';
+        tarjeta.id = 'q' + n;
+        tarjeta.innerHTML = `
+          <div class="texto"><span class="num">${n}.</span>${texto}</div>
+          <div class="escala-opciones">
+            ${[0,1,2,3,4].map(v => `
+              <label data-idx="${idx}" data-val="${v}">
+                <input type="radio" name="q${n}" value="${v}">
+                <span class="n">${v}</span>
+                <span>${ETIQUETAS[v]}</span>
+              </label>
+            `).join('')}
+          </div>
+        `;
+        secc.appendChild(tarjeta);
+      });
+      cont.appendChild(secc);
+    });
+
+    // Delegación de eventos para seleccionar
+    cont.addEventListener('click', ev => {
+      const label = ev.target.closest('label[data-idx]');
+      if (!label) return;
+      const idx = +label.dataset.idx;
+      const val = +label.dataset.val;
+      respuestas[idx] = val;
+
+      // marcar visualmente
+      label.parentElement.querySelectorAll('label').forEach(l => l.classList.remove('seleccionada'));
+      label.classList.add('seleccionada');
+      document.getElementById('q' + (idx + 1)).classList.add('respondida');
+
+      actualizarContador();
+    });
+  }
+
+  function actualizarContador() {
+    const n = respuestas.filter(r => r !== null).length;
+    const cont = document.getElementById('contador');
+    cont.textContent = `Respondidas: ${n} de 12`;
+    if (n === 12) {
+      cont.classList.add('completo');
+      cont.textContent = '✓ Todas las preguntas respondidas — podés entregar';
+      if (sesionId) document.getElementById('btn-entregar').disabled = false;
+    } else {
+      cont.classList.remove('completo');
+      document.getElementById('btn-entregar').disabled = true;
+    }
+  }
+
+  function calcularIndice() {
+    // A + B − C   →   rango teórico  -16 (mucho autocuidado) … +32 (mucho desgaste)
+    const suma = arr => arr.reduce((a,b) => a + b, 0);
+    const A = suma(respuestas.slice(0, 4));
+    const B = suma(respuestas.slice(4, 8));
+    const C = suma(respuestas.slice(8, 12));
+    return A + B - C;
+  }
+
+  function zonaDeIndice(indice) {
+    return ZONAS.find(z => indice <= z.limite);
+  }
+
+  async function entregar() {
+    if (ya_entregado) return;
+    if (respuestas.some(r => r === null)) return;
+    if (!sesionId) return;
+
+    const btn = document.getElementById('btn-entregar');
+    const errBox = document.getElementById('error-msg');
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+    errBox.classList.remove('visible');
+
+    const indice = calcularIndice();
+    const zona   = zonaDeIndice(indice);
+
+    const registro = {
+      sesion_id: sesionId,
+      indice: indice,
+      zona: zona.nombre
+    };
+    respuestas.forEach((v, i) => registro['r' + (i + 1)] = v);
+
+    try {
+      // Conexión mínima: no requiere el SDK completo cargado como global,
+      // pero lo usamos porque ya está en el CDN.
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { error } = await client.from('autotest_respuestas').insert(registro);
+
+      if (error) throw error;
+
+      ya_entregado = true;
+      mostrarResultado(indice, zona);
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = 'Entregar';
+      errBox.textContent = 'No pudimos enviar tu respuesta. Revisá tu conexión y probá otra vez.';
+      errBox.classList.add('visible');
+    }
+  }
+
+  function mostrarResultado(indice, zona) {
+    document.getElementById('formulario').style.display = 'none';
+    document.getElementById('resultado').classList.add('visible');
+    document.getElementById('valor-indice').textContent    = (indice >= 0 ? '+' : '') + indice;
+    document.getElementById('zona-nombre').textContent     = zona.nombre;
+    document.getElementById('zona-descripcion').textContent = zona.desc;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+
+</body>
+</html>
